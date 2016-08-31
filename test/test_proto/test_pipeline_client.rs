@@ -27,7 +27,7 @@ fn test_ping_pong_close() {
     run(|mock, service| {
         mock.allow_write();
 
-        let pong = service.call(pipeline::Message::WithoutBody("ping"));
+        let pong = service.call(pipeline::Message("ping", None));
         assert_eq!("ping", mock.next_write().unwrap_msg());
 
         mock.send(pipeline::Frame::Message("pong"));
@@ -46,7 +46,7 @@ fn test_response_ready_before_request_sent() {
 
         support::sleep_ms(20);
 
-        let pong = service.call(pipeline::Message::WithoutBody("ping"));
+        let pong = service.call(pipeline::Message("ping", None));
 
         assert_eq!("pong", pong.wait().unwrap());
     });
@@ -58,7 +58,7 @@ fn test_streaming_request_body() {
         let (mut tx, rx) = stream::channel();
 
         mock.allow_write();
-        let pong = service.call(pipeline::Message::WithBody("ping", rx));
+        let pong = service.call(pipeline::Message("ping", Some(rx)));
 
         assert_eq!("ping", mock.next_write().unwrap_msg());
 

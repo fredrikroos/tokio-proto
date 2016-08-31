@@ -242,7 +242,7 @@ impl<S, T, E> Pipeline<S, T>
     fn write_in_message(&mut self, message: Result<Message<S::InMsg, S::InBodyStream>, S::Error>) -> io::Result<()> {
         trace!("write_in_message");
         match message {
-            Ok(Message::WithoutBody(val)) => {
+            Ok(Message(val, body)) => {
                 trace!("got in_flight value with body");
                 try!(self.transport.write(Frame::Message(val)));
 
@@ -250,17 +250,7 @@ impl<S, T, E> Pipeline<S, T>
                 assert!(self.in_body.is_none());
 
                 // Track the response body
-                self.in_body = None;
-            }
-            Ok(Message::WithBody(val, body)) => {
-                trace!("got in_flight value with body");
-                try!(self.transport.write(Frame::Message(val)));
-
-                // TODO: don't panic maybe if this isn't true?
-                assert!(self.in_body.is_none());
-
-                // Track the response body
-                self.in_body = Some(body);
+                self.in_body = body;
             }
             Err(e) => {
                 trace!("got in_flight error");

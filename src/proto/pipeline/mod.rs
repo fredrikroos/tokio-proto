@@ -59,12 +59,7 @@ pub enum Frame<T, E, B = ()>
 }
 
 /// Message sent and received from a pipeline service
-pub enum Message<T, B> {
-    /// Has no associated streaming body
-    WithoutBody(T),
-    /// Has associated streaming body
-    WithBody(T, B),
-}
+pub struct Message<T, B>(pub T, pub Option<B>);
 
 /// Error returned as an Error frame or an `io::Error` that occurerred during
 /// normal processing of the Transport
@@ -241,23 +236,8 @@ impl<T, B> Message<T, B> {
     /// If the `Message` value has an associated body stream, return it. The
     /// original `Message` value will then become a `WithoutBody` variant.
     pub fn take_body(&mut self) -> Option<B> {
-        use std::ptr;
-
-        // unfortunate that this is unsafe, but I think it is preferable to add
-        // a little bit of unsafe code instead of adding a useless variant to
-        // Message.
-        unsafe {
-            match ptr::read(self as *const Message<T, B>) {
-                m @ Message::WithoutBody(..) => {
-                    ptr::write(self as *mut Message<T, B>, m);
-                    None
-                }
-                Message::WithBody(m, b) => {
-                    ptr::write(self as *mut Message<T, B>, Message::WithoutBody(m));
-                    Some(b)
-                }
-            }
-        }
+        let Message(_, ref mut body) = *self;
+        body.take()
     }
 }
 
@@ -273,19 +253,13 @@ impl<T, B> ops::Deref for Message<T, B> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        match *self {
-            Message::WithoutBody(ref v) => v,
-            Message::WithBody(ref v, _) => v,
-        }
+        &self.0
     }
 }
 
 impl<T, B> ops::DerefMut for Message<T, B> {
     fn deref_mut(&mut self) -> &mut T {
-        match *self {
-            Message::WithoutBody(ref mut v) => v,
-            Message::WithBody(ref mut v, _) => v,
-        }
+        &mut self.0
     }
 }
 
@@ -294,8 +268,8 @@ impl<T, B> fmt::Debug for Message<T, B>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Message::WithoutBody(ref v) => write!(fmt, "Message::WithoutBody({:?})", v),
-            Message::WithBody(ref v, _) => write!(fmt, "Message::WithBody({:?}, ...)", v),
+            Message(ref v, Some(_)) => write!(fmt, "Message({:?}, Some(...))", v),
+            Message(ref v, None) => write!(fmt, "Message({:?}, None)", v)
         }
     }
 }

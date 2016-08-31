@@ -63,7 +63,7 @@ fn test_immediate_writable_delayed_response_echo() {
         mock.send(msg("hello"));
 
         support::sleep_ms(20);
-        c.complete(Ok(Message::WithoutBody("goodbye")));
+        c.complete(Ok(Message("goodbye", None)));
 
         assert_eq!(mock.next_write().unwrap_msg(), "goodbye");
 
@@ -113,13 +113,13 @@ fn test_pipelining_while_service_is_processing() {
         let c3 = rx.recv().unwrap();
 
         mock.assert_no_write(20);
-        c3.complete(Ok(Message::WithoutBody("three")));
+        c3.complete(Ok(Message("three", None)));
 
         mock.assert_no_write(20);
-        c2.complete(Ok(Message::WithoutBody("two")));
+        c2.complete(Ok(Message("two", None)));
 
         mock.assert_no_write(20);
-        c1.complete(Ok(Message::WithoutBody("one")));
+        c1.complete(Ok(Message("one", None)));
 
         assert_eq!("one", mock.next_write().unwrap_msg());
         assert_eq!("two", mock.next_write().unwrap_msg());
@@ -200,7 +200,7 @@ fn test_returning_error_from_service() {
 #[test]
 fn test_reading_error_frame_from_transport() {
     let service = tokio_proto::simple_service(move |_| {
-        finished(Message::WithoutBody("omg no"))
+        finished(Message("omg no", None))
     });
 
     run(service, |mock| {
@@ -212,7 +212,7 @@ fn test_reading_error_frame_from_transport() {
 #[test]
 fn test_reading_io_error_from_transport() {
     let service = tokio_proto::simple_service(move |_| {
-        finished(Message::WithoutBody("omg no"))
+        finished(Message("omg no", None))
     });
 
     run(service, |mock| {
@@ -247,7 +247,7 @@ fn test_streaming_request_body_then_responding() {
                 tx.lock().unwrap().send(chunk).unwrap();
                 Ok(())
             })
-            .and_then(|_| finished(Message::WithoutBody("hi2u")))
+            .and_then(|_| finished(Message("hi2u", None)))
     });
 
     run(service, |mock| {
@@ -285,7 +285,7 @@ fn test_responding_then_streaming_request_body() {
             })
             .forget();
 
-        finished(Message::WithoutBody("hi2u"))
+        finished(Message("hi2u", None))
     });
 
     run(service, |mock| {
@@ -316,7 +316,7 @@ fn test_pipeline_streaming_body_without_consuming() {
 
         if req == "one" {
             debug!("drop body");
-            finished(Message::WithoutBody("resp-one")).boxed()
+            finished(Message("resp-one", None)).boxed()
         } else {
             let tx = tx.clone();
 
@@ -324,7 +324,7 @@ fn test_pipeline_streaming_body_without_consuming() {
                     tx.lock().unwrap().send(chunk).unwrap();
                     Ok(())
                 })
-                .and_then(|_| finished(Message::WithoutBody("resp-two")))
+                .and_then(|_| finished(Message("resp-two", None)))
                 .boxed()
         }
     });
@@ -374,7 +374,7 @@ fn test_streaming_response_body() {
 
     let service = tokio_proto::simple_service(move |req| {
         assert_eq!(req, "omg");
-        finished(Message::WithBody("hi2u", rx.lock().unwrap().take().unwrap()))
+        finished(Message("hi2u", Some(rx.lock().unwrap().take().unwrap())))
     });
 
     run(service, |mock| {
@@ -409,12 +409,12 @@ fn channel<T>() -> (Arc<Mutex<mpsc::Sender<T>>>, mpsc::Receiver<T>) {
 }
 
 fn msg(msg: Msg) -> OutFrame {
-    Frame::Message(Message::WithoutBody(msg))
+    Frame::Message(Message(msg, None))
 }
 
 fn msg_with_body(msg: Msg) -> OutFrame {
     let (tx, rx) = stream::channel();
-    Frame::MessageWithBody(Message::WithBody(msg, rx), tx)
+    Frame::MessageWithBody(Message(msg, Some(rx)), tx)
 }
 
 /// Setup a reactor running a pipeline::Server with the given service and a
