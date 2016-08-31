@@ -131,23 +131,17 @@ impl<S, T, E> Pipeline<S, T>
         // At this point, the service & transport are ready to process the
         // frame, no matter what it is.
         match frame {
-            Frame::Message(out_message) => {
-                trace!("read out message");
-                // There is no streaming body. Set `out_body` to `None` so that
-                // the previous body stream is dropped.
-                self.out_body = None;
-
-                if let Err(_) = self.dispatch.dispatch(out_message) {
-                    // TODO: Should dispatch be infalliable
-                    unimplemented!();
+            Frame::Message(out_message, body_sender) => {
+                if body_sender.is_some() {
+                    trace!("read out message with body");
+                } else {
+                    trace!("read out message");
                 }
-            }
-            Frame::MessageWithBody(out_message, body_sender) => {
-                trace!("read out message with body");
+
                 // Track the out body sender. If `self.out_body`
                 // currently holds a sender for the previous out body, it
                 // will get dropped. This terminates the stream.
-                self.out_body = Some(BodySender::Ready(body_sender));
+                self.out_body = body_sender.map(|sender| BodySender::Ready(sender));
 
                 if let Err(_) = self.dispatch.dispatch(out_message) {
                     // TODO: Should dispatch be infalliable
@@ -244,7 +238,7 @@ impl<S, T, E> Pipeline<S, T>
         match message {
             Ok(Message(val, body)) => {
                 trace!("got in_flight value with body");
-                try!(self.transport.write(Frame::Message(val)));
+                try!(self.transport.write(Frame::Message(val, None)));
 
                 // TODO: don't panic maybe if this isn't true?
                 assert!(self.in_body.is_none());

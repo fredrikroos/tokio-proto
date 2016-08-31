@@ -409,12 +409,12 @@ fn channel<T>() -> (Arc<Mutex<mpsc::Sender<T>>>, mpsc::Receiver<T>) {
 }
 
 fn msg(msg: Msg) -> OutFrame {
-    Frame::Message(Message(msg, None))
+    Frame::Message(Message(msg, None), None)
 }
 
 fn msg_with_body(msg: Msg) -> OutFrame {
     let (tx, rx) = stream::channel();
-    Frame::MessageWithBody(Message(msg, Some(rx)), tx)
+    Frame::Message(Message(msg, Some(rx)), Some(tx))
 }
 
 /// Setup a reactor running a pipeline::Server with the given service and a

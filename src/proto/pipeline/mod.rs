@@ -44,12 +44,10 @@ pub enum Frame<T, E, B = ()>
           B: Send + 'static,
 {
     /// Either a request or a response
-    Message(T),
-    /// Returned by `Transport::read` when a streaming body will follow.
+    /// Sender is returned by `Transport::read` when a streaming body will follow.
     /// Subsequent body frames will be proxied to the provided `Sender`.
-    ///
-    /// Calling `Transport::write` with Frame::MessageWithBody is an error.
-    MessageWithBody(T, Sender<B, E>),
+    /// Calling `Transport::write` with a Sender is an error.
+    Message(T, Option<Sender<B, E>>),
     /// Body frame. None indicates that the body is done streaming.
     Body(Option<B>),
     /// Error
@@ -171,8 +169,7 @@ impl<T, E, B> Frame<T, E, B>
     /// Unwraps a frame, yielding the content of the `Message`.
     pub fn unwrap_msg(self) -> T {
         match self {
-            Frame::Message(v) => v,
-            Frame::MessageWithBody(v, _) => v,
+            Frame::Message(v, _) => v,
             Frame::Body(..) => panic!("called `Frame::unwrap_msg()` on a `Body` value"),
             Frame::Error(..) => panic!("called `Frame::unwrap_msg()` on an `Error` value"),
             Frame::Done => panic!("called `Frame::unwrap_msg()` on a `Done` value"),
@@ -184,7 +181,6 @@ impl<T, E, B> Frame<T, E, B>
         match self {
             Frame::Body(v) => v,
             Frame::Message(..) => panic!("called `Frame::unwrap_body()` on a `Message` value"),
-            Frame::MessageWithBody(..) => panic!("called `Frame::unwrap_body()` on a `MessageWithBody` value"),
             Frame::Error(..) => panic!("called `Frame::unwrap_body()` on an `Error` value"),
             Frame::Done => panic!("called `Frame::unwrap_body()` on a `Done` value"),
         }
@@ -196,7 +192,6 @@ impl<T, E, B> Frame<T, E, B>
             Frame::Error(e) => e,
             Frame::Body(..) => panic!("called `Frame::unwrap_err()` on a `Body` value"),
             Frame::Message(..) => panic!("called `Frame::unwrap_err()` on a `Message` value"),
-            Frame::MessageWithBody(..) => panic!("called `Frame::unwrap_err()` on a `MessageWithBody` value"),
             Frame::Done => panic!("called `Frame::unwrap_message()` on a `Done` value"),
         }
     }
@@ -217,8 +212,8 @@ impl<T, E, B> fmt::Debug for Frame<T, E, B>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Frame::Message(ref v) => write!(fmt, "Frame::Message({:?})", v),
-            Frame::MessageWithBody(ref v, _) => write!(fmt, "Frame::MessageWithBody({:?}, Sender)", v),
+            Frame::Message(ref v, Some(_)) => write!(fmt, "Frame::Message({:?}, Some(Sender))", v),
+            Frame::Message(ref v, None) => write!(fmt, "Frame::Message({:?}, None)", v),
             Frame::Body(ref v) => write!(fmt, "Frame::Body({:?})", v),
             Frame::Error(ref v) => write!(fmt, "Frame::Error({:?})", v),
             Frame::Done => write!(fmt, "Frame::Done"),

@@ -30,7 +30,7 @@ fn test_ping_pong_close() {
         let pong = service.call(pipeline::Message("ping", None));
         assert_eq!("ping", mock.next_write().unwrap_msg());
 
-        mock.send(pipeline::Frame::Message("pong"));
+        mock.send(pipeline::Frame::Message("pong", None));
         assert_eq!("pong", pong.wait().unwrap());
 
         mock.send(pipeline::Frame::Done);
@@ -42,7 +42,7 @@ fn test_ping_pong_close() {
 #[ignore]
 fn test_response_ready_before_request_sent() {
     run(|mock, service| {
-        mock.send(pipeline::Frame::Message("pong"));
+        mock.send(pipeline::Frame::Message("pong", None));
 
         support::sleep_ms(20);
 
@@ -74,7 +74,7 @@ fn test_streaming_request_body() {
         drop(tx);
         assert_eq!(None, mock.next_write().unwrap_body());
 
-        mock.send(pipeline::Frame::Message("pong"));
+        mock.send(pipeline::Frame::Message("pong", None));
         assert_eq!("pong", pong.wait().unwrap());
 
         mock.send(pipeline::Frame::Done);
